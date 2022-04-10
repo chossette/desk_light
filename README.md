@@ -1,2 +1,8 @@
 # desk_light
-esp32 webserver for light control
+ESP32 webserver for light control
+
+API allows to:
+- configure the wifi connexion (access point/client)
+- set multiple light interface
+- switch on/off
+- select color/intensity (using HUE configuration)
