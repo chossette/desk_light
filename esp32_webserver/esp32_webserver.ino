@@ -28,21 +28,22 @@ WebServer server(80);
 Config config;
 
 #define STRIP_PIN 13
+#define STRIP_LED_COUNT 35
 DeskLight deskLight;
 
 void init_lights(void) {
-  deskLight.lights[0] = new StripLight(STRIP_PIN, 10);
+  deskLight.lights[0] = new StripLight(STRIP_PIN, STRIP_LED_COUNT);
   deskLight.lights[1] = new SimpleLight(14);
 }
 
-bool rotary_dim_mode = true;
+#define ROTARY_MODE_COUNT 3
+uint8_t rotary_dim_mode = 0;
+
 #define ROTARY_INCREMENT  20
 #define ROTARY_PIN_BUTTON 23
 #define ROTARY_PIN_CLK    19
 #define ROTARY_PIN_DATA   21
 RotaryHandler rotary(ROTARY_PIN_BUTTON, ROTARY_PIN_CLK, ROTARY_PIN_DATA);
-
-CRGB *leds = new CRGB[3];
 
 #include "esp32_web_response.h"
 
@@ -173,7 +174,11 @@ void setup(void) {
     deskLight.set_power(!deskLight.power()); 
   });
   rotary.onLongPress([&deskLight]() -> void {
-    rotary_dim_mode = !rotary_dim_mode;
+    Serial.print("Rotary_dim_mode: ");
+    Serial.print((short)rotary_dim_mode);
+    rotary_dim_mode = (rotary_dim_mode + 1) % ROTARY_MODE_COUNT;
+    Serial.print(" -> ");
+    Serial.println((short)rotary_dim_mode);
   });
   rotary.onVeryLongPress([&deskLight]() -> void {
     // reset wifi configuration, move to access point
@@ -182,26 +187,33 @@ void setup(void) {
   });
   rotary.onRotaryLeft([&deskLight]() -> void {
     Light* l = deskLight.light("StripLight");
-    if (rotary_dim_mode)
+    if (rotary_dim_mode == 0)
     {
       uint8_t new_dim = l->dim() <= ROTARY_INCREMENT ? 0 : l->dim() - ROTARY_INCREMENT;
       l->set_dim(new_dim);
     }
-    else {
+    else if (rotary_dim_mode == 1) {
       uint8_t new_hue = l->colour_hsv_hue() - ROTARY_INCREMENT;
       l->set_colour_hsv(new_hue, l->colour_hsv_saturation());
+    }
+    else if (rotary_dim_mode == 2) {
+      deskLight.program_inc(-1);
     }
   });
   rotary.onRotaryRight([&deskLight]() -> void {
     Light* l = deskLight.light("StripLight");
-    if (rotary_dim_mode)
+    if (rotary_dim_mode == 0)
     {
       uint8_t new_dim = l->dim() >= (255-ROTARY_INCREMENT) ? 255 : l->dim() + ROTARY_INCREMENT;
       l->set_dim(new_dim);
     }
-    else {
+    else if (rotary_dim_mode == 1)
+    {
       uint8_t new_hue = l->colour_hsv_hue() + ROTARY_INCREMENT;
       l->set_colour_hsv(new_hue, l->colour_hsv_saturation());
+    }
+    else if (rotary_dim_mode == 2) {
+      deskLight.program_inc(-1);
     }
   });
 }

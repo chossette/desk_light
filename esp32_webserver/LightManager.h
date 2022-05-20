@@ -49,6 +49,10 @@ class Light {
     virtual inline uint8_t program(void) {
       return _program;
     }
+    
+    virtual inline uint8_t program_count(void) {
+      return 0;
+    }
 
     virtual void loop() {
       ;
@@ -59,7 +63,7 @@ class Light {
       s += String("\"name\": \"") + String(_name) + String("\",");
       s += String("\"dim\": ") + String(_dim) + String(",");
       s += String("\"hsv\": { \"hue\": ") + String(_colour_hsv_hue) + String(", \"saturation\": ") + String(_colour_hsv_saturation) + String("},");
-      s += String("\"program\": ") + String(_program) + String("}");
+      s += String("\"program\": { \"id\": ") + String(_program) + String(", \"count\": ") + String(program_count()) + String("} }");
       return s;
     }
 };
@@ -108,6 +112,64 @@ class DeskLight {
       for (uint8_t i = 0; i < light_count; ++i) {
         if (!lights[i]) continue;
         lights[i]->set_colour_hsv(hue, saturation);
+      }
+      return true;
+    }
+
+    // return common program if same on all light
+    // otherwise -1
+    short program(void) {
+      short common_program = -1;
+      for (uint8_t i = 0; i < light_count; ++i) {
+        if (!lights[i]) continue;
+        if (common_program == -1)
+        {
+          common_program = lights[i]->program();
+        }
+        else if (lights[i]->program() != common_program)
+        {
+          return -1;
+        }
+        return common_program;
+      }
+    }
+
+    // set same program on all light
+    bool set_program(uint8_t prg) {
+      for (uint8_t i = 0; i < light_count; ++i)
+      {
+        if (!lights[i]) continue;
+        lights[i]->set_program(prg);
+      }
+      return true;
+    }
+
+    // increment program (and rotate)
+    bool program_inc(short increment) {
+      for (uint8_t i = 0; i < light_count; ++i)
+      {
+        if (!lights[i]) continue;
+        short prg = lights[i]->program();
+        short prg_cnt = lights[i]->program_count();
+        if (prg_cnt > 0)
+        {
+          Serial.println(lights[i]->status());
+          short prg_next = prg + increment;
+          if (prg_next < 0) 
+          {
+            prg_next = prg_cnt + prg_next;
+          }
+          else if (prg_next >= prg_cnt)
+          {
+            prg_next = prg_next - prg_cnt; 
+          }
+          Serial.print("Increment is ");
+          Serial.print(increment);
+          Serial.print(" next is ");
+          Serial.println(prg_next);
+          lights[i]->set_program(prg_next);
+          Serial.println(lights[i]->status());
+        }
       }
       return true;
     }
