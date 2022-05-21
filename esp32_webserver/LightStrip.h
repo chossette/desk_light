@@ -83,6 +83,16 @@ class StripLight : public Light {
       
       return true;    
     }
+
+    virtual inline bool set_program(uint8_t prg) {
+      if (prg >= program_count()) {
+        // out of range
+        return false;
+      }
+
+      _program = prg;
+      return true;
+    }
     
     virtual inline uint8_t program_count(void) {
       return static_cast<uint8_t>(_programs.size());

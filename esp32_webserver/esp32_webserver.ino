@@ -97,9 +97,17 @@ bool wifi_connect(String ssid, String password, String hostname, uint32_t timeou
   return true;
 }
 
+
+  /* Attempt to get http server performance
+   * By running on the other unused core
+TaskHandle_t webServerLoopHandle;
+void webServerLoop(void *params);
+*/
+
 void setup(void) {
   Serial.begin(115200);
-  delay(2000);
+  
+  delay(500);
 
   // light setup
   Serial.println("Init lights");
@@ -133,37 +141,57 @@ void setup(void) {
 
   // Route for action
   // wifi configuration
-  server.on(UriBraces("/wifi/ssid/{}/password/{}"), []() {
-    // request connection to this wifi network
-    String uri_ssid = server.pathArg(0);
-    String uri_password = server.pathArg(1);
-    Serial.println("Switch wifi to " + uri_ssid);
-    if ( wifi_connect(uri_ssid, uri_password, hostname, 3000) ) {
+  server.on("/wifi", HTTP_GET, []() {
+    // get ssif and password arguments
+    String wifi_ssid = server.arg("ssid");
+    String wifi_password = server.arg("password");
+    
+    // and check validity of parameters
+    if (wifi_ssid.length() == 0 || wifi_password.length() == 0) {
+      server.send(400, "text/plain", "Bad request: ssid and password args must be defined");
+      return;
+    }
+    
+    if ( wifi_connect(wifi_ssid, wifi_password, hostname, 3000) ) {
       server.send(200, "application/json", "{ \"status\": true }");
-      config.set_wifi_ssid(uri_ssid);
-      config.set_wifi_password(uri_password);
+      config.set_wifi_ssid(wifi_ssid);
+      config.set_wifi_password(wifi_password);
       config.write();
     }
     else
     {
       Serial.println("FAILED, fallback to access point");
       wifi_ap(ap_ssid, ap_password);
-      server.send(404, "application/json", "{ \"status\": false, \"reason\": \"Unable to connect to " + String(uri_ssid) + "\" }");
+      server.send(404, "application/json", "{ \"status\": false, \"reason\": \"Unable to connect to " + String(wifi_ssid) + "\" }");
     }
   });
+
   // power on/off
   server.on(UriBraces("/power/{}"), []() {
-    web_power(server.pathArg(0));
+    // supported args:
+    // - opt name: for a specific light
+    web_power(server.arg("name"), server.pathArg(0));
   });
 
-  // Dim a specific light
-  server.on(UriBraces("/light/{}/dim/{}"), []() {
-    web_light_dim(server.pathArg(0), server.pathArg(1).toInt());
-  });
+  // adjust light
+  server.on("/light", []() {
+    // supported args:
+    // - opt name: for a specific light
+    // - opt hue: to define hue
+    // - opt dim: to define brightness
+    // - opt sat: to define saturation
+    // at least one of hue/dim/sat shall be defined
+    String name = server.arg("name");
+    String hue = server.arg("hue");
+    String dim = server.arg("dim");
+    String sat = server.arg("sat");
 
-  // Colour a specific light
-  server.on(UriBraces("/light/{}/hsv/{}/{}"), []() {
-    web_light_hsv(server.pathArg(0), server.pathArg(1).toInt(), server.pathArg(2).toInt());
+    // badly formed request
+    if (name.length() == 0 && hue.length() == 0 && dim.length() == 0 && sat.length() == 0) {
+      server.send(400, "text/plain", "Bad request: hue, dim or sat must be defined (at least one of them)");
+    }
+
+    web_light(name, hue, dim, sat);
   });
   
   // start serving

@@ -29,20 +29,32 @@ class Light {
     inline uint8_t colour_hsv_saturation(void)  { return _colour_hsv_saturation; }
     inline uint8_t dim(void)                    { return _dim; }
     
-    virtual bool set_colour_hsv(uint8_t hue, uint8_t saturation) {
+    virtual inline bool set_colour_hue(uint8_t hue) {
       _colour_hsv_hue = hue;
-      _colour_hsv_saturation = saturation;
+      return true;    
+    }
+    virtual inline bool set_colour_saturation(uint8_t sat) {
+      _colour_hsv_saturation = sat;
       return true;    
     }
     
-    virtual bool set_dim(uint8_t dimv) {
+    virtual bool set_colour_hsv(uint8_t hue, uint8_t saturation) {
+      set_colour_hue(hue);
+      set_colour_saturation(saturation);
+      return true;    
+    }
+    
+    virtual inline bool set_dim(uint8_t dimv) {
       _dim = dimv;
       return true;
     }
     
+    virtual bool set_power(bool value) {
+      uint8_t dim = value ? 255 : 0;
+      return set_dim(dim);
+    }
+    
     virtual bool set_program(uint8_t prg) {
-      _program = prg;
-      if (_program == 0) set_dim(0);
       return false;
     }
 
@@ -101,9 +113,29 @@ class DeskLight {
     
     bool set_power(bool value) {
       uint8_t dim = value ? 255 : 0;
+      return set_dim(dim);
+    }
+    
+    bool set_dim(uint8_t dim) {
       for (uint8_t i = 0; i < light_count; ++i) {
         if (!lights[i]) continue;
         lights[i]->set_dim(dim);
+      }
+      return true;
+    }
+    
+    bool set_colour_hue(uint8_t hue) {
+      for (uint8_t i = 0; i < light_count; ++i) {
+        if (!lights[i]) continue;
+        lights[i]->set_colour_hue(hue);
+      }
+      return true;
+    }
+    
+    bool set_colour_saturation(uint8_t saturation) {
+      for (uint8_t i = 0; i < light_count; ++i) {
+        if (!lights[i]) continue;
+        lights[i]->set_colour_saturation(saturation);
       }
       return true;
     }
@@ -146,6 +178,7 @@ class DeskLight {
 
     // increment program (and rotate)
     bool program_inc(short increment) {
+      Serial.println(String("Program_inc " ) + increment);
       for (uint8_t i = 0; i < light_count; ++i)
       {
         if (!lights[i]) continue;
@@ -166,6 +199,7 @@ class DeskLight {
           Serial.print("Increment is ");
           Serial.print(increment);
           Serial.print(" next is ");
+          Serial.println(lights[i]->status());
           Serial.println(prg_next);
           lights[i]->set_program(prg_next);
           Serial.println(lights[i]->status());
