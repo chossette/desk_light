@@ -213,7 +213,7 @@ void setup(void) {
       l->set_colour_hsv(new_hue, l->colour_hsv_saturation());
     }
     else if (rotary_dim_mode == 2) {
-      deskLight.program_inc(-1);
+      deskLight.program_inc(+1);
     }
   });
 }
