@@ -99,9 +99,9 @@ class StripLight : public Light {
     }
 
      virtual void loop() {
-      // run the progra
+      Light::loop();
       if ((millis() - _last_refresh) > _programs[_program].refresh_delay) {
-        _programs[_program].loopFunc(this);
+        _programs[_program].loopFunc(this);        
         FastLED.show();
         _last_refresh = millis();
       }        

@@ -16,10 +16,10 @@ void web_power(String sname, String value) {
 
     bool power_res = true;
     if (l) {
-      power_res = l->set_power(power_value);
+      power_res = l->set_power(power_value, true);
     }
     else {
-      power_res = deskLight.set_power(power_value);
+      power_res = deskLight.set_power(power_value, true);
     }
     if (power_res) {
       server.send(200, "application/json", "{ \"status\": true }");
@@ -28,7 +28,7 @@ void web_power(String sname, String value) {
     }
 }
 
-void web_light(String sname, String shue, String sdim, String ssat) {
+void web_light(String sname, String shue, String sdim, String ssat, String sprg) {
   Light *l = 0;
   if (sname.length() != 0) {
     l = deskLight.light(sname);
@@ -79,6 +79,18 @@ void web_light(String sname, String shue, String sdim, String ssat) {
       response += ", ";
     }
     response += "\"dim\": " + String(dim);
+  }
+
+  // setting program
+  if (sprg.length() != 0) {
+    uint8_t prg = sprg.toInt();
+    if (l) {
+      l->set_program(prg);
+    }
+    else {
+      deskLight.set_program(prg);
+    }
+    response += "\"program\": " + String(prg);
   }
 
   // add status

@@ -9,6 +9,19 @@ class Light {
     uint8_t  _dim;
     uint8_t  _program;
 
+    // transition from current stat to target value
+    // for a defined time
+    struct Transition {
+      bool     active = false;
+      uint32_t start_ms;
+      uint32_t duration_ms = 150;
+      uint8_t  v_start;
+      uint8_t  v_target;
+    };
+    struct Transition _transition_hue;
+    struct Transition _transition_sat;
+    struct Transition _transition_dim;
+
   public:
     Light(String n) : _name(n),
                       _colour_hsv_hue(0), 
@@ -25,36 +38,59 @@ class Light {
       set_dim(0);      
     }
 
+    void transition_stop(void) {
+      _transition_hue.active = false;
+      _transition_sat.active = false;
+      _transition_dim.active = false;
+    }
+
     inline uint8_t colour_hsv_hue(void)         { return _colour_hsv_hue; }
     inline uint8_t colour_hsv_saturation(void)  { return _colour_hsv_saturation; }
     inline uint8_t dim(void)                    { return _dim; }
     
-    virtual inline bool set_colour_hue(uint8_t hue) {
-      _colour_hsv_hue = hue;
+    virtual inline bool set_colour_hue(uint8_t hue, bool fade = false) {
+      if (fade) {
+        set_transition(&_transition_hue, _colour_hsv_hue, hue);
+      }
+      else {
+        _colour_hsv_hue = hue;
+      }
       return true;    
     }
-    virtual inline bool set_colour_saturation(uint8_t sat) {
-      _colour_hsv_saturation = sat;
+    virtual inline bool set_colour_saturation(uint8_t sat, bool fade = false) {
+      if (fade) {
+        set_transition(&_transition_sat, _colour_hsv_saturation, sat);
+      }
+      else {
+        _colour_hsv_saturation = sat;
+      }
       return true;    
     }
     
-    virtual bool set_colour_hsv(uint8_t hue, uint8_t saturation) {
-      set_colour_hue(hue);
-      set_colour_saturation(saturation);
+    virtual bool set_colour_hsv(uint8_t hue, uint8_t saturation, bool fade = false) {
+      set_colour_hue(hue, fade);
+      set_colour_saturation(saturation, fade);
       return true;    
     }
     
-    virtual inline bool set_dim(uint8_t dimv) {
-      _dim = dimv;
+    virtual inline bool set_dim(uint8_t dimv, bool fade = false) {
+      if (fade) {
+        set_transition(&_transition_dim, _dim, dimv);
+      }
+      else {
+        _dim = dimv;
+      }
       return true;
     }
     
-    virtual bool set_power(bool value) {
+    virtual bool set_power(bool value, bool animated = false) {
       uint8_t dim = value ? 255 : 0;
-      return set_dim(dim);
+      return set_dim(dim, animated);
     }
     
     virtual bool set_program(uint8_t prg) {
+      // stop all transition when moving to a program
+      transition_stop();
       return false;
     }
 
@@ -66,8 +102,40 @@ class Light {
       return 0;
     }
 
+    void set_transition(struct Transition *t, uint8_t v_start, uint8_t v_target) {
+        t->active = true;
+        t->start_ms = millis();
+        t->v_start = v_start;
+        t->v_target = v_target;
+    }
+
+    void apply_transition(uint32_t now_ms, uint8_t* target_value, struct Transition *t) {      
+      if (t->active) {
+        // remaining time for transition
+        int32_t percent_done = (now_ms - t->start_ms) * 100 / t->duration_ms;
+        // no more time !
+        if (percent_done >= 100) {
+          t->active = false;
+          *target_value = t->v_target;
+        }
+        else
+        {
+          // range
+          int16_t percent_new_value = percent_done;
+          if (t->v_target < t->v_start) {
+            // move back, inverse percent done
+            percent_new_value = 100 - percent_done;
+          }
+          int16_t shift = ((t->v_target - t->v_start) * percent_done) / 100;
+          *target_value = (abs(t->v_target - t->v_start) * percent_new_value) / 100;
+        }
+      }
+    }
     virtual void loop() {
-      ;
+      uint32_t now_ms = millis();
+      apply_transition(now_ms, &_dim, &_transition_dim);
+      apply_transition(now_ms, &_colour_hsv_hue, &_transition_hue);
+      apply_transition(now_ms, &_colour_hsv_saturation, &_transition_sat);
     }
 
     String status(void) {
@@ -111,39 +179,39 @@ class DeskLight {
       return (powered_count > 0);
     }
     
-    bool set_power(bool value) {
+    bool set_power(bool value, bool animated = false) {
       uint8_t dim = value ? 255 : 0;
-      return set_dim(dim);
+      return set_dim(dim, animated);
     }
     
-    bool set_dim(uint8_t dim) {
+    bool set_dim(uint8_t dim, bool animated = false) {
       for (uint8_t i = 0; i < light_count; ++i) {
         if (!lights[i]) continue;
-        lights[i]->set_dim(dim);
+        lights[i]->set_dim(dim, animated);
       }
       return true;
     }
     
-    bool set_colour_hue(uint8_t hue) {
+    bool set_colour_hue(uint8_t hue, bool animated = false) {
       for (uint8_t i = 0; i < light_count; ++i) {
         if (!lights[i]) continue;
-        lights[i]->set_colour_hue(hue);
+        lights[i]->set_colour_hue(hue, animated);
       }
       return true;
     }
     
-    bool set_colour_saturation(uint8_t saturation) {
+    bool set_colour_saturation(uint8_t saturation, bool animated = false) {
       for (uint8_t i = 0; i < light_count; ++i) {
         if (!lights[i]) continue;
-        lights[i]->set_colour_saturation(saturation);
+        lights[i]->set_colour_saturation(saturation, animated);
       }
       return true;
     }
     
-    bool set_colour_hsv(uint8_t hue, uint8_t saturation) {
+    bool set_colour_hsv(uint8_t hue, uint8_t saturation, bool animated = false) {
       for (uint8_t i = 0; i < light_count; ++i) {
         if (!lights[i]) continue;
-        lights[i]->set_colour_hsv(hue, saturation);
+        lights[i]->set_colour_hsv(hue, saturation, animated);
       }
       return true;
     }

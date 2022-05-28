@@ -124,18 +124,6 @@ def foo4():
         # 2. diffuse from left and right leds
         # 3. sparkle some
         # 4. draw
-        
-        def heat_color(hc):
-            max_light = 191
-            # scale to [0; max_light[
-            hs = hc * max_light / 100
-            # hotests
-            if hs > 2*max_light/3: # hotest, nearly white
-                return (255, 255, hs)
-            elif hs > max_light/3: # medium, nearly yellow
-                return (255, hs, 0)
-            # cold, nearly red
-            return (hs, 0, 0)
 
         # draw
         for led in range(led_count):

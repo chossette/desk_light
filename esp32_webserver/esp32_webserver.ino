@@ -180,18 +180,20 @@ void setup(void) {
     // - opt hue: to define hue
     // - opt dim: to define brightness
     // - opt sat: to define saturation
+    // - opt prg: to define program
     // at least one of hue/dim/sat shall be defined
     String name = server.arg("name");
     String hue = server.arg("hue");
     String dim = server.arg("dim");
     String sat = server.arg("sat");
+    String prg = server.arg("prg");
 
     // badly formed request
-    if (name.length() == 0 && hue.length() == 0 && dim.length() == 0 && sat.length() == 0) {
-      server.send(400, "text/plain", "Bad request: hue, dim or sat must be defined (at least one of them)");
+    if (name.length() == 0 && hue.length() == 0 && dim.length() == 0 && sat.length() == 0 && prg.length() == 0) {
+      server.send(400, "text/plain", "Bad request: hue, dim, sat or prg must be defined (at least one of them)");
     }
 
-    web_light(name, hue, dim, sat);
+    web_light(name, hue, dim, sat, prg);
   });
   
   // start serving
@@ -199,7 +201,7 @@ void setup(void) {
   Serial.println("HTTP Server started");
   
   rotary.onPress([&deskLight]() -> void { 
-    deskLight.set_power(!deskLight.power()); 
+    deskLight.set_power(!deskLight.power(), true); 
   });
   rotary.onLongPress([&deskLight]() -> void {
     Serial.print("Rotary_dim_mode: ");
@@ -244,8 +246,27 @@ void setup(void) {
       deskLight.program_inc(+1);
     }
   });
-}
 
+  /* Attempt to get http server performance
+   * By running on the other unused core
+  xTaskCreatePinnedToCore(
+    webServerLoop,
+    "webServerLoop",
+    4096,
+    NULL,
+    0,
+    &webServerLoopHandle,
+    0);
+   */
+}
+/*
+void webServerLoop(void *params) {
+  for (;;) {
+    server.handleClient();
+    delay(1);//allow the cpu to switch to other tasks
+  }
+}
+*/
 void loop(void) {
   server.handleClient();
   rotary.handle();
